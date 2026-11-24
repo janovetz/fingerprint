@@ -603,6 +603,20 @@
   }
 
   function renderInspector() {
+    // Re-rendering replaces the inspector's fields (also when a font finishes
+    // loading), so keep the field being typed in focused, with its text and caret.
+    const a = document.activeElement, host = $('#inspector');
+    const keep = a && host.contains(a) && (a.dataset.label || a.dataset.ins)
+      ? { sel: a.dataset.label ? `[data-label="${a.dataset.label}"]` : `[data-ins="${a.dataset.ins}"]`, v: a.value, s: a.selectionStart, e: a.selectionEnd }
+      : null;
+    renderInspectorHtml();
+    if (keep) {
+      const n = host.querySelector(keep.sel);
+      if (n) { n.value = keep.v; n.focus(); try { n.setSelectionRange(keep.s, keep.e); } catch (err) { /* not a text field */ } }
+    }
+  }
+
+  function renderInspectorHtml() {
     const el = $('#inspector');
     const t = model.trays.find(x => x.id === selected);
     if (!t) {
@@ -646,8 +660,8 @@
         <div><dt>Corner fingers</dt><dd>${g.segments} × ${esc(fmt(g.segH))}</dd></div>
         <div><dt>Floor tabs</dt><dd>${g.tabsPerSide.x} + ${g.tabsPerSide.y} per side</dd></div>
         ${g.floorPieces > 1 ? `<div><dt>Floor</dt><dd>${g.floorPieces} pieces${g.floorHiddenSeams ? ` · ${g.floorHiddenSeams} seam${g.floorHiddenSeams > 1 ? 's' : ''} under dividers` : ''}</dd></div>` : ''}
-        ${t.divs.x.length ? `<div><dt>Compartments wide</dt><dd>${compartments(t.divs.x, t.W).map(fmt).join(' · ')}</dd></div>` : ''}
-        ${t.divs.y.length ? `<div><dt>Compartments deep</dt><dd>${compartments(t.divs.y, t.D).map(fmt).join(' · ')}</dd></div>` : ''}
+        ${t.divs.x.length ? `<div><dt>Compartments wide</dt><dd>${compartments(t.divs.x, t.W).map(v => fmt(v).replace(/ /g, "\u00a0")).join(" · ")}</dd></div>` : ''}
+        ${t.divs.y.length ? `<div><dt>Compartments deep</dt><dd>${compartments(t.divs.y, t.D).map(v => fmt(v).replace(/ /g, "\u00a0")).join(" · ")}</dd></div>` : ''}
       </dl>
       <div class="divbox">
         <div class="divbox-head"><span>Compartments</span>${custom ? '<button class="chip" data-op="even">Space evenly</button>' : ''}</div>
@@ -659,16 +673,35 @@
       </div>
       <div class="divbox engbox">
         <div class="divbox-head"><span>Floor engraving</span><span class="engstat">${fontStatus() === 'loading' ? 'loading font…' : ''}</span></div>
-        <div class="enggrid" style="grid-template-columns:${compartments(t.divs.x, t.W).map(w => `minmax(0,${w.toFixed(1)}fr)`).join(' ')}">
-          ${Array.from({ length: t.divs.y.length + 1 }, (_, j) => Array.from({ length: t.divs.x.length + 1 }, (_, i) => {
-            const k = `${i},${j}`, v = (t.node.labels && t.node.labels[k]) || '';
-            const rot = (t.node.labelRot && t.node.labelRot[k]) || 0;
-            const arrow = { 0: '→', 90: '↑', 180: '←', 270: '↓' }[rot];
-            return `<div class="engcell"><textarea data-label="${k}" rows="${Math.min(3, Math.max(1, v.split('\n').length))}" placeholder="label" spellcheck="false">${esc(v)}</textarea>`
-              + `<button class="rot" data-op="rot" data-k="${k}" title="Rotate this label 90° (now reads ${{ 0: 'left to right', 90: 'bottom to top', 180: 'upside down', 270: 'top to bottom' }[rot]})">${arrow}</button></div>`;
-          }).join('')).join('')}
+        <div class="englist">
+          ${(() => {
+            const ws = compartments(t.divs.x, t.W), hs = compartments(t.divs.y, t.D);
+            const MW = 26, MH = clamp((MW * t.D) / t.W, 14, 30), g = 1.5;
+            const sx = (MW - g * (ws.length + 1)) / ws.reduce((a, b) => a + b, 0), sy = (MH - g * (hs.length + 1)) / hs.reduce((a, b) => a + b, 0);
+            const map = (ci, cj) => {
+              let r = '', y = g;
+              hs.forEach((h, j) => {
+                let x = g;
+                ws.forEach((w, i) => { r += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${(w * sx).toFixed(2)}" height="${(h * sy).toFixed(2)}"${i === ci && j === cj ? ' class="on"' : ''}/>`; x += w * sx + g; });
+                y += h * sy + g;
+              });
+              return `<svg class="engmap" viewBox="0 0 ${MW} ${MH.toFixed(2)}" width="${MW}" height="${MH.toFixed(0)}" aria-hidden="true"><rect class="frame" width="${MW}" height="${MH.toFixed(2)}"/>${r}</svg>`;
+            };
+            const rows = hs.length, cols = ws.length, many = rows * cols > 1;
+            const where = (i, j) => [cols > 1 ? (cols === 2 ? ['Left', 'Right'][i] : `Column ${i + 1}`) : '', rows > 1 ? (rows === 2 ? ['back', 'front'][j] : `row ${j + 1}`) : '']
+              .filter(Boolean).join(', ').replace(/^./, c => c.toUpperCase());
+            return Array.from({ length: rows }, (_, j) => Array.from({ length: cols }, (_, i) => {
+              const k = `${i},${j}`, v = (t.node.labels && t.node.labels[k]) || '';
+              const rot = (t.node.labelRot && t.node.labelRot[k]) || 0;
+              const arrow = { 0: '→', 90: '↑', 180: '←', 270: '↓' }[rot];
+              const name = many ? where(i, j) : 'Whole floor';
+              return `<div class="engrow" title="${esc(name)}">${map(i, j)}`
+                + `<textarea data-label="${k}" rows="${Math.min(3, Math.max(1, v.split('\n').length))}" placeholder="${esc(name)}" aria-label="Label for ${esc(name.toLowerCase())}" spellcheck="false">${esc(v)}</textarea>`
+                + `<button class="rot" data-op="rot" data-k="${k}" title="Rotate this label 90° (now reads ${{ 0: 'left to right', 90: 'bottom to top', 180: 'upside down', 270: 'top to bottom' }[rot]})">${arrow}</button></div>`;
+            }).join('')).join('');
+          })()}
         </div>
-        <p class="divhint">One box per compartment. Shift+Enter adds a second line, and the arrow rotates the label.</p>
+        <p class="divhint">One line per compartment; the map shows which. Shift+Enter adds a second line, and the arrow rotates the label.</p>
       </div>
       <div class="ops">
         <div class="op-row"><span>Split into columns</span>
@@ -752,7 +785,15 @@
     });
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter' && e.target.matches('input')) e.target.blur();
-      if (e.key === 'Enter' && e.target.matches('textarea') && !e.shiftKey) { e.preventDefault(); e.target.blur(); }
+      if (e.key === 'Enter' && e.target.matches('textarea') && !e.shiftKey) {
+        // Enter saves the label and moves on to the next compartment
+        e.preventDefault();
+        const all = $$('#inspector [data-label]'), at = all.indexOf(e.target);
+        const nextKey = at >= 0 && at < all.length - 1 ? all[at + 1].dataset.label : null;
+        e.target.blur();
+        const nx = nextKey && el.querySelector(`[data-label="${nextKey}"]`);
+        if (nx) nx.focus();
+      }
     });
   }
 

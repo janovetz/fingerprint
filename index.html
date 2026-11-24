@@ -169,19 +169,24 @@
   .engr.area { fill: #23120a; fill-opacity: .82; }
   .engr.line { fill: none; stroke: #23120a; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
   .sheet-card .engr.area { fill: #2a160b; }
-  .enggrid { display: grid; gap: 4px; }
-  .engcell { position: relative; min-width: 0; }
-  .engcell .rot {
-    position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 2px;
-    background: transparent; color: var(--ink-dim); font: 12px/18px var(--mono);
+  .englist { display: flex; flex-direction: column; gap: 5px; }
+  .engrow { display: grid; grid-template-columns: 26px minmax(0, 1fr) 24px; align-items: center; gap: 8px; }
+  .engmap { display: block; justify-self: center; }
+  .engmap rect { fill: #d9cdb6; }
+  .engmap rect.frame { fill: #6b4a33; }
+  .engmap rect.on { fill: var(--laser); }
+  .engrow .rot {
+    width: 24px; height: 24px; padding: 0; border: 1px solid var(--rule); border-radius: 2px;
+    background: #fff; color: var(--ink-dim); font: 13px/22px var(--mono);
   }
-  .engcell .rot:hover { background: var(--ink); color: var(--paper-hi); }
+  .engrow .rot:hover { background: var(--ink); color: var(--paper-hi); }
   .tray .seam { fill: none; stroke: #f0e4cc; stroke-opacity: .55; stroke-width: 1; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; pointer-events: none; }
-  .enggrid textarea {
+  .engrow textarea {
     width: 100%; min-width: 0; resize: none; border: 1px solid var(--rule); background: #fff; color: var(--ink);
-    font: 500 12px/1.3 var(--ui); padding: 4px 18px 4px 5px; text-align: center; border-radius: 2px;
+    font: 500 12.5px/1.35 var(--ui); padding: 4px 7px; border-radius: 2px;
   }
-  .enggrid textarea:focus { outline: none; border-color: var(--laser); }
+  .engrow textarea::placeholder { color: #a99c88; }
+  .engrow textarea:focus { outline: none; border-color: var(--laser); }
   .engstat { font: 11px var(--mono); }
   .divider { fill: transparent; cursor: col-resize; }
   .divider.y { cursor: row-resize; }
@@ -219,7 +224,7 @@
   .facts dt { color: var(--ink-dim); }
   .sw-inline { display: inline-grid; place-items: center; width: 20px; height: 20px; background: var(--walnut-3); color: var(--cream); font: 600 11px/1 var(--display); margin-right: 4px; }
   .facts dt { flex: none; }
-  .facts dd { margin: 0; font-family: var(--mono); font-size: 11.5px; text-align: right; white-space: nowrap; }
+  .facts dd { margin: 0; min-width: 0; font-family: var(--mono); font-size: 11.5px; text-align: right; }
   .ops { display: grid; gap: 8px; }
   .op-row { display: flex; align-items: center; gap: 6px; }
   .op-row > span { flex: 1; font-size: 12.5px; color: var(--ink-dim); }
